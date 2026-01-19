@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/books.css') }}">
+
+<div class="container">
+    <div class="book-detail">
+        <h2>{{ book.title }}</h2>
+
+        <p><strong>Author:</strong> {{ book.author }}</p>
+        <p><strong>Category:</strong> {{ book.category.category_name }}</p>
+        <p><strong>Status:</strong>
+            <span class="{{ book.status|lower }}">{{ book.status }}</span>
+        </p>
+
+        <p class="description">{{ book.description }}</p>
+        <p class="details">{{ book.detailed_info }}</p>
+
+        {% if session.get('role') == 'Member' and book.status == 'Available' %}
+            <form method="post" action="/borrow/confirm">
+                <input type="hidden" name="book_id" value="{{ book.book_id }}">
+                <button class="btn-primary">Borrow</button>
+            </form>
+        {% elif not session.get('user_id') %}
+            <a href="/login" class="btn-secondary">Login to Borrow</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
