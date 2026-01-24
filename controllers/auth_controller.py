@@ -1,4 +1,4 @@
-from backend.models.user_model import User
+from models.user_model import User
 from database.databaseConnect.db_connect import get_connection
 import hashlib
 

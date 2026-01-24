@@ -1,4 +1,4 @@
-from backend.controllers.auth_controller import login, logout, change_password, get_current_user
+from controllers.auth_controller import login, logout, change_password, get_current_user
 user = login()
 
 if user:
