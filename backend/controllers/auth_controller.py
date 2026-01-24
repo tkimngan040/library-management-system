@@ -19,7 +19,8 @@ def clear_session():
 def is_authenticated():
     return current_user is not None
 
-# ===== SERVICE / DAO =====
+
+# ===== HASH / DAO =====
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -54,6 +55,7 @@ def update_password(user_id: int, new_password: str):
     conn.commit()
     conn.close()
 
+
 # ===== AUTH LOGIC =====
 def login():
     print("\n===== LOGIN =====")
@@ -66,7 +68,15 @@ def login():
         print("User does not exist.")
         return None
 
-    if user.password_hash != hash_password(password):
+    db_pw = user.password_hash
+
+    if len(db_pw) != 64:
+        hashed = hash_password(db_pw)
+        update_password(user.user_id, db_pw)
+        user.password_hash = hashed
+        db_pw = hashed
+
+    if db_pw != hash_password(password):
         print("Incorrect password.")
         return None
 
@@ -80,7 +90,7 @@ def login():
 
 def logout():
     clear_session()
-    print("\n👋 You have been logged out.")
+    print("You have been logged out.")
 
 def change_password():
     user = get_current_user()
@@ -104,3 +114,18 @@ def change_password():
 
     update_password(user.user_id, new_pw)
     print("Password updated successfully!")
+
+
+# ===== AUTHORIZATION =====
+def require_login():
+    return get_current_user() is not None
+
+def require_role(role: str):
+    user = get_current_user()
+    return user and user.role.lower() == role.lower()
+
+def has_role(*roles):
+    user = get_current_user()
+    if not user:
+        return False
+    return user.role.lower() in [r.lower() for r in roles]
