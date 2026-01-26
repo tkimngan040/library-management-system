@@ -1,28 +1,12 @@
-from tabulate import tabulate
+def format_date(date_str):
+    if not date_str:
+        return "N/A"
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        return dt.strftime('%d/%m/%Y %H:%M')
+    except:
+        return date_str
 
-def show_books_table(books):
-    """Hiển thị danh sách sách dạng bảng"""
-    if not books:
-        print("❌ Không có sách nào.")
-        return
-
-    headers = ["Book ID", "Title", "Author", "Category", "Status"]
-    table = []
-
-    for b in books:
-        status = "Available" if b["available_copies"] > 0 else "Borrowed"
-        table.append([
-            b["book_id"],
-            b["title"],
-            b["author"],
-            b["category"],
-            status
-        ])
-
-    print(tabulate(table, headers=headers, tablefmt="grid"))
-
-
-def paginate(data, page, limit=5):
-    start = (page - 1) * limit
-    end = start + limit
-    return data[start:end]
+def format_currency(amount):
+    return f"{amount:,.0f} VND"
