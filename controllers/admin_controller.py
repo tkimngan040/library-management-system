@@ -2,6 +2,7 @@
 Admin Controller - Business logic for admin operations
 Author: Member 2 - Book Management (Admin)
 Description: Handles all admin-related operations including book and member management
+Updated: Added Validators integration for consistent validation
 """
 
 import sqlite3
@@ -9,6 +10,7 @@ import hashlib
 from typing import List, Optional, Tuple, Dict
 from datetime import datetime
 from models.book import Book
+from utils.validators import Validators
 
 
 class AdminController:
@@ -41,27 +43,33 @@ class AdminController:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        # Input validation
-        if not title or not title.strip():
-            return False, "Book title cannot be empty!"
+        # Sanitize inputs
+        title = Validators.sanitize_input(title)
+        author = Validators.sanitize_input(author)
+        category = Validators.sanitize_input(category)
+        description = Validators.sanitize_input(description)
+        detailed_info = Validators.sanitize_input(detailed_info)
         
-        if not author or not author.strip():
-            return False, "Author name cannot be empty!"
+        # Validate all fields using Validators
+        validations = [
+            Validators.validate_book_title(title),
+            Validators.validate_author_name(author),
+            Validators.validate_category(category),
+            Validators.validate_book_quantity(quantity)
+        ]
         
-        if not category or not category.strip():
-            return False, "Category cannot be empty!"
-        
-        if quantity <= 0:
-            return False, "Quantity must be greater than 0!"
+        is_valid, error_msg = Validators.validate_all(validations)
+        if not is_valid:
+            return False, error_msg
         
         try:
             # Create new Book object
             book = Book(
-                title=title.strip(),
-                author=author.strip(),
-                category=category.strip(),
-                description=description.strip() if description else "",
-                detailed_info=detailed_info.strip() if detailed_info else "",
+                title=title,
+                author=author,
+                category=category,
+                description=description,
+                detailed_info=detailed_info,
                 total_quantity=quantity,
                 available_quantity=quantity,
                 status="Available"
@@ -100,31 +108,38 @@ class AdminController:
         if not book:
             return False, f"Book with ID {book_id} not found!"
         
-        # Update fields if new values provided
+        # Validate and update fields if new values provided
         if title is not None:
-            if not title.strip():
-                return False, "Book title cannot be empty!"
-            book.title = title.strip()
+            title = Validators.sanitize_input(title)
+            is_valid, msg = Validators.validate_book_title(title)
+            if not is_valid:
+                return False, msg
+            book.title = title
         
         if author is not None:
-            if not author.strip():
-                return False, "Author name cannot be empty!"
-            book.author = author.strip()
+            author = Validators.sanitize_input(author)
+            is_valid, msg = Validators.validate_author_name(author)
+            if not is_valid:
+                return False, msg
+            book.author = author
         
         if category is not None:
-            if not category.strip():
-                return False, "Category cannot be empty!"
-            book.category = category.strip()
+            category = Validators.sanitize_input(category)
+            is_valid, msg = Validators.validate_category(category)
+            if not is_valid:
+                return False, msg
+            book.category = category
         
         if description is not None:
-            book.description = description.strip()
+            book.description = Validators.sanitize_input(description)
         
         if detailed_info is not None:
-            book.detailed_info = detailed_info.strip()
+            book.detailed_info = Validators.sanitize_input(detailed_info)
         
         if total_quantity is not None:
-            if total_quantity <= 0:
-                return False, "Quantity must be greater than 0!"
+            is_valid, msg = Validators.validate_book_quantity(total_quantity)
+            if not is_valid:
+                return False, msg
             
             # Check if new quantity is valid (must be >= borrowed count)
             borrowed_count = book.total_quantity - book.available_quantity
@@ -183,6 +198,7 @@ class AdminController:
         Returns:
             List of matching books
         """
+        keyword = Validators.sanitize_input(keyword)
         return Book.search(keyword, field, self.conn)
 
     def get_book_details(self, book_id: int) -> Optional[Book]:
@@ -207,6 +223,7 @@ class AdminController:
         Returns:
             List of books in the category
         """
+        category = Validators.sanitize_input(category)
         return Book.get_by_category(category, self.conn)
 
     def get_all_categories(self) -> List[str]:
@@ -284,21 +301,36 @@ class AdminController:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        # Validation
-        if not username or not username.strip():
-            return False, "Username cannot be empty!"
+        # Sanitize inputs
+        username = Validators.sanitize_input(username)
+        full_name = Validators.sanitize_input(full_name)
+        email = Validators.sanitize_input(email)
+        phone = Validators.sanitize_input(phone)
         
-        if not password or len(password) < 6:
-            return False, "Password must be at least 6 characters!"
+        # Validate required fields
+        validations = [
+            Validators.validate_username(username),
+            Validators.validate_password(password),
+            Validators.validate_not_empty(full_name, "Full name"),
+            Validators.validate_string_length(full_name, 1, 100, "Full name")
+        ]
         
-        if not full_name or not full_name.strip():
-            return False, "Full name cannot be empty!"
+        # Validate optional fields if provided
+        if email:
+            validations.append(Validators.validate_email(email))
+        
+        if phone:
+            validations.append(Validators.validate_phone(phone))
+        
+        is_valid, error_msg = Validators.validate_all(validations)
+        if not is_valid:
+            return False, error_msg
         
         try:
             cursor = self.conn.cursor()
             
             # Check if username already exists
-            cursor.execute('SELECT user_id FROM users WHERE username = ?', (username.strip(),))
+            cursor.execute('SELECT user_id FROM users WHERE username = ?', (username,))
             if cursor.fetchone():
                 return False, f"Username '{username}' already exists!"
             
@@ -310,8 +342,8 @@ class AdminController:
                 INSERT INTO users (username, password, full_name, email, phone, 
                                  role, account_status, fine_balance, created_at)
                 VALUES (?, ?, ?, ?, ?, 'Member', 'Active', 0, ?)
-            ''', (username.strip(), hashed_password, full_name.strip(), 
-                  email.strip(), phone.strip(), datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            ''', (username, hashed_password, full_name, email, phone,
+                  datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             
             self.conn.commit()
             return True, f"Member '{username}' added successfully!"
@@ -350,18 +382,37 @@ class AdminController:
             params = []
             
             if full_name is not None:
-                if not full_name.strip():
-                    return False, "Full name cannot be empty!"
+                full_name = Validators.sanitize_input(full_name)
+                is_valid, msg = Validators.validate_not_empty(full_name, "Full name")
+                if not is_valid:
+                    return False, msg
+                
+                is_valid, msg = Validators.validate_string_length(full_name, 1, 100, "Full name")
+                if not is_valid:
+                    return False, msg
+                
                 updates.append("full_name = ?")
-                params.append(full_name.strip())
+                params.append(full_name)
             
             if email is not None:
+                email = Validators.sanitize_input(email)
+                if email:  # Only validate if not empty
+                    is_valid, msg = Validators.validate_email(email)
+                    if not is_valid:
+                        return False, msg
+                
                 updates.append("email = ?")
-                params.append(email.strip())
+                params.append(email)
             
             if phone is not None:
+                phone = Validators.sanitize_input(phone)
+                if phone:  # Only validate if not empty
+                    is_valid, msg = Validators.validate_phone(phone)
+                    if not is_valid:
+                        return False, msg
+                
                 updates.append("phone = ?")
-                params.append(phone.strip())
+                params.append(phone)
             
             if account_status is not None:
                 if account_status not in ['Active', 'Locked']:
@@ -489,8 +540,9 @@ class AdminController:
             List of matching member dictionaries
         """
         try:
+            keyword = Validators.sanitize_input(keyword)
             cursor = self.conn.cursor()
-            keyword = f'%{keyword}%'
+            keyword_pattern = f'%{keyword}%'
             
             cursor.execute('''
                 SELECT user_id, username, full_name, email, phone, 
@@ -498,7 +550,7 @@ class AdminController:
                 FROM users 
                 WHERE role = 'Member' AND (username LIKE ? OR full_name LIKE ?)
                 ORDER BY user_id DESC
-            ''', (keyword, keyword))
+            ''', (keyword_pattern, keyword_pattern))
             
             members = []
             for row in cursor.fetchall():
