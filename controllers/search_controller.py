@@ -1,4 +1,4 @@
-from database.db_connection import get_db_connection
+from database.databaseConnect.db_connect import get_connection
 class SearchController:
     """
     Đúng theo Use Case 2.2 Search Book trong tiểu luận

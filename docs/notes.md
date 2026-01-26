@@ -6,3 +6,4 @@ DN2. Open the Terminal (Ctrl + `) and run "pip install pyodbc" to install the py
 DN3. Open the Terminal (Ctrl + `) and run "python database/test_db_connect.py" to execute the test_db_connect file.
 
 
+

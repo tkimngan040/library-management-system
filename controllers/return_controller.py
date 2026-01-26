@@ -1,5 +1,5 @@
 from datetime import date
-from database.db_connection import get_connection
+from database.databaseConnect.db_connect import get_connection
 from utils.fine_calculator import calculate_fine
 
 

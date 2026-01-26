@@ -1,6 +1,6 @@
 # controllers/borrow_controller.py
 from datetime import datetime, timedelta
-from database.db_connection import get_connection
+from database.databaseConnect.db_connect import get_connection
 
 # Giới hạn số sách được mượn tối đa
 MAX_BORROW_LIMIT = 5

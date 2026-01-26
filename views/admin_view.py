@@ -77,7 +77,7 @@ class AdminView:
     # ==================== MAIN MENU ====================
     
     @staticmethod
-    def show_main_menu() -> str:
+    def admin_menu() -> str:
         """
         Display admin main menu
         

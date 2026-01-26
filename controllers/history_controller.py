@@ -1,4 +1,4 @@
-from database.db_connection import get_connection
+from database.databaseConnect.db_connect import get_connection
 
 
 def view_borrow_history(member_id):
