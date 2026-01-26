@@ -1,63 +1,47 @@
-from datetime import date
-from database.databaseConnect.db_connect import get_connection
-from utils.fine_calculator import calculate_fine
+from models.book import Book
+from models.user import User
+from models.borrow_record import BorrowRecord
+from datetime import datetime
+import config
 
-
-def return_book(member_id, book_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # 1. Kiểm tra member có mượn sách này không
-    cursor.execute("""
-        SELECT id, due_date 
-        FROM borrow_records
-        WHERE member_id = ?
-          AND book_id = ?
-          AND status = 'Borrowed'
-    """, (member_id, book_id))
-
-    record = cursor.fetchone()
-    if not record:
-        conn.close()
-        return False, "Bạn không mượn cuốn sách này."
-
-    record_id, due_date = record
-    return_date = date.today()
-
-    # 2. Tính tiền phạt
-    overdue_days, fine = calculate_fine(
-        date.fromisoformat(due_date),
-        return_date
-    )
-
-    # 3. Cập nhật borrow record
-    cursor.execute("""
-        UPDATE borrow_records
-        SET return_date = ?, status = 'Returned', fine = ?
-        WHERE id = ?
-    """, (return_date.isoformat(), fine, record_id))
-
-    # 4. Cập nhật trạng thái sách
-    cursor.execute("""
-        UPDATE books
-        SET status = 'Available', quantity = quantity + 1
-        WHERE id = ?
-    """, (book_id,))
-
-    # 5. Cập nhật tiền phạt cho member
-    if fine > 0:
-        cursor.execute("""
-            UPDATE users
-            SET fine_balance = fine_balance + ?
-            WHERE id = ?
-        """, (fine, member_id))
-
-    conn.commit()
-    conn.close()
-
-    return True, {
-        "return_date": return_date,
-        "overdue_days": overdue_days,
-        "fine": fine
-    }
+class ReturnController:
+    @staticmethod
+    def calculate_fine(due_date_str, return_date_str):
+        due = datetime.strptime(due_date_str, '%Y-%m-%d %H:%M:%S')
+        ret = datetime.strptime(return_date_str, '%Y-%m-%d %H:%M:%S')
+        
+        if ret <= due:
+            return 0, 0
+        
+        overdue_days = (ret - due).days
+        fine = overdue_days * config.FINE_PER_DAY
+        return overdue_days, fine
+    
+    @staticmethod
+    def return_book(record_id):
+        try:
+            records = BorrowRecord.get_all_borrow_records()
+            record = next((r for r in records if r.record_id == record_id), None)
+            
+            if not record:
+                return False, "Record not found"
+            
+            if record.status != 'Borrowed':
+                return False, "Already returned"
+            
+            return_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            overdue_days, fine = ReturnController.calculate_fine(record.due_date, return_date)
+            
+            BorrowRecord.update_record(record_id, return_date=return_date, status='Returned',
+                                      overdue_days=overdue_days, fine_amount=fine)
+            Book.update_quantity(record.book_id, 1)
+            
+            if fine > 0:
+                user = User.get_user_by_id(record.user_id)
+                User.update_user(record.user_id, fine_balance=user.fine_balance + fine)
+                return True, f"Returned. Overdue: {overdue_days} days. Fine: {fine:,.0f} VND"
+            
+            return True, "Book returned successfully!"
+        except Exception as e:
+            return False, str(e)
 
