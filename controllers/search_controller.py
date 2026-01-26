@@ -1,47 +1,82 @@
-from database.databaseConnect.db_connect import get_connection
+"""
+Search Controller - provides search and sort utilities for books
+Returns lists of dicts compatible with views (keys: book_id, title, author, category,
+status, available_copies, total_copies, description, detailed_info)
+"""
+from models.book import Book
+
 class SearchController:
-    """
-    Đúng theo Use Case 2.2 Search Book trong tiểu luận
-    """
     @staticmethod
-    def search_books(keyword=None, category=None, sort_by=None, ascending=True):
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    def _book_to_dict(b):
+        return {
+            "book_id": b.book_id,
+            "title": b.title,
+            "author": b.author,
+            "category": b.category_name or "",
+            "status": b.status,
+            "available_copies": b.available_quantity,
+            "total_copies": b.total_quantity,
+            "description": b.description,
+            "detailed_info": b.detailed_info
+        }
 
-        query = "SELECT * FROM books WHERE 1=1"
-        params = []
+    @staticmethod
+    def search_books(keyword=None, search_by="title"):
+        """
+        Search books by keyword and field.
+        - keyword: search term (substring match, case-insensitive)
+        - search_by: one of "title", "author", "category"
+        Returns list of dicts.
+        """
+        kw = (keyword or "").strip().lower()
+        books = Book.get_all_books()
+        results = []
 
-        # Search by title keyword
-        if keyword:
-            query += " AND title LIKE ?"
-            params.append(f"%{keyword}%")
+        for b in books:
+            title = (b.title or "").lower()
+            author = (b.author or "").lower()
+            category = (b.category_name or "").lower() if b.category_name else ""
 
-        # Filter by category
-        if category:
-            query += " AND category LIKE ?"
-            params.append(f"%{category}%")
+            if not kw:
+                match = True
+            elif search_by == "title":
+                match = kw in title
+            elif search_by == "author":
+                match = kw in author
+            elif search_by == "category":
+                match = kw in category
+            else:
+                # fallback: check title and author
+                match = kw in title or kw in author
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
+            if match:
+                results.append(SearchController._book_to_dict(b))
 
-        books = []
-        for r in rows:
-            books.append({
-                "book_id": r[0],
-                "title": r[1],
-                "author": r[2],
-                "category": r[3],
-                "total_copies": r[4],
-                "available_copies": r[5],
-                "description": r[6]
-            })
- # Sorting theo yêu cầu tiểu luận
-        if sort_by:
-            books = sorted(
-                books,
-                key=lambda x: x[sort_by],
-                reverse=not ascending
-            )
+        return results
 
-        return books
+    @staticmethod
+    def sort_books(books, sort_by='title_asc'):
+        """
+        Sort a list of book-dicts produced by search_books/display.
+        - sort_by options: 'title_asc', 'title_desc', 'author_asc', 'author_desc', 'status'
+        """
+        reverse = False
+        key = lambda x: (x.get('title') or "").lower()
+
+        if sort_by == 'title_desc':
+            reverse = True
+            key = lambda x: (x.get('title') or "").lower()
+        elif sort_by == 'author_asc':
+            key = lambda x: (x.get('author') or "").lower()
+        elif sort_by == 'author_desc':
+            reverse = True
+            key = lambda x: (x.get('author') or "").lower()
+        elif sort_by == 'status':
+            # Put Available first
+            key = lambda x: (0 if (x.get('status') == 'Available') else 1, (x.get('title') or "").lower())
+
+        try:
+            return sorted(books, key=key, reverse=reverse)
+        except Exception:
+            return books
+
