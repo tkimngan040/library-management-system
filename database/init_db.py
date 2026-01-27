@@ -4,7 +4,12 @@ import config
 import bcrypt
 
 def initialize_database():
-    os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
+    data_dir = os.path.dirname(config.DB_PATH)
+    if data_dir and not os.path.exists(data_dir):
+        os.makedirs(data_dir, exist_ok=True)
+    
+    data_dir = os.path.dirname(config.DB_PATH)
+    os.makedirs(data_dir, exist_ok=True)
     conn = sqlite3.connect(config.DB_PATH)
     cursor = conn.cursor()
 
