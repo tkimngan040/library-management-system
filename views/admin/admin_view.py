@@ -61,3 +61,4 @@ class AdminView(tk.Frame):
         controller = AdminBorrowController()
         ManageBorrowView(self.app.root, controller)\
             .pack(fill="both", expand=True)
+    
